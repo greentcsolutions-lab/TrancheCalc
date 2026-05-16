@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TrancheCalc — Exponential Position Sizing</title>
+  <meta name="description" content="Calculate optimal share allocations across price tranches. Built for retail traders who DCA with exponential weighting." />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- jsPDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="brand">
+        <span class="brand-icon">⬡</span>
+        <span class="brand-name">TrancheCalc</span>
+        <span class="brand-tag">POSITION SIZER</span>
+      </div>
+      <div class="header-actions">
+        <button class="btn-ghost" id="themeToggle" title="Toggle theme">
+          <span class="theme-icon">◐</span>
+        </button>
+        <button class="btn-ghost" id="loadBtn" title="Load saved config">LOAD</button>
+        <button class="btn-ghost" id="saveBtn" title="Save config">SAVE</button>
+        <button class="btn-primary" id="shareBtn">SHARE ↗</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-layout">
+
+    <!-- Input Panel -->
+    <aside class="input-panel">
+      <div class="panel-header">
+        <span class="panel-label">PARAMETERS</span>
+        <button class="btn-reset" id="resetBtn">RESET</button>
+      </div>
+
+      <div class="input-group">
+        <label class="input-label" for="totalCapital">
+          Total Capital ($)
+          <span class="input-hint">Amount you'll deploy across all tranches</span>
+        </label>
+        <div class="input-wrapper">
+          <span class="input-prefix">$</span>
+          <input type="number" id="totalCapital" class="input-field" value="10000" min="1" step="100" />
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label class="input-label" for="numTranches">
+          Number of Tranches
+          <span class="input-hint">How many price levels to buy at</span>
+        </label>
+        <input type="range" id="numTranches" class="input-range" min="2" max="10" value="5" />
+        <div class="range-display"><span id="numTranchesVal">5</span> levels</div>
+      </div>
+
+      <div class="input-group">
+        <label class="input-label" for="startPrice">
+          Entry Price ($)
+          <span class="input-hint">Current / first target price per share</span>
+        </label>
+        <div class="input-wrapper">
+          <span class="input-prefix">$</span>
+          <input type="number" id="startPrice" class="input-field" value="100" min="0.01" step="0.01" />
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label class="input-label" for="stepMode">
+          Step Mode
+          <span class="input-hint">How prices decrease between tranches</span>
+        </label>
+        <div class="toggle-group" id="stepMode">
+          <button class="toggle-btn active" data-mode="percent">% Drop</button>
+          <button class="toggle-btn" data-mode="fixed">Fixed $</button>
+        </div>
+      </div>
+
+      <div class="input-group" id="percentGroup">
+        <label class="input-label" for="stepPercent">
+          Price Drop per Tranche (%)
+          <span class="input-hint">e.g. 5% = buy every 5% dip</span>
+        </label>
+        <div class="input-wrapper">
+          <input type="number" id="stepPercent" class="input-field" value="5" min="0.1" max="50" step="0.1" />
+          <span class="input-suffix">%</span>
+        </div>
+      </div>
+
+      <div class="input-group hidden" id="fixedGroup">
+        <label class="input-label" for="stepFixed">
+          Fixed $ Drop per Tranche
+          <span class="input-hint">e.g. $5 = buy every $5 decline</span>
+        </label>
+        <div class="input-wrapper">
+          <span class="input-prefix">$</span>
+          <input type="number" id="stepFixed" class="input-field" value="5" min="0.01" step="0.01" />
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label class="input-label" for="allocationMode">
+          Allocation Curve
+          <span class="input-hint">How to weight each tranche</span>
+        </label>
+        <div class="toggle-group" id="allocationMode">
+          <button class="toggle-btn active" data-mode="exponential">Exp ↑</button>
+          <button class="toggle-btn" data-mode="equal">Equal</button>
+          <button class="toggle-btn" data-mode="linear">Linear</button>
+        </div>
+      </div>
+
+      <div class="input-group" id="expFactorGroup">
+        <label class="input-label" for="expFactor">
+          Exponential Factor
+          <span class="input-hint">Higher = more capital at lower prices</span>
+        </label>
+        <input type="range" id="expFactor" class="input-range" min="1.1" max="4" value="2" step="0.1" />
+        <div class="range-display">×<span id="expFactorVal">2.0</span></div>
+      </div>
+
+      <div class="input-group">
+        <label class="input-label" for="ticker">
+          Ticker Symbol (optional)
+          <span class="input-hint">For display/export labeling</span>
+        </label>
+        <input type="text" id="ticker" class="input-field" value="AAPL" maxlength="10" placeholder="e.g. AAPL" />
+      </div>
+
+      <button class="btn-calculate" id="calcBtn">CALCULATE TRANCHES</button>
+
+      <div class="export-row">
+        <button class="btn-export" id="exportCsvBtn">↓ CSV</button>
+        <button class="btn-export" id="exportPdfBtn">↓ PDF</button>
+      </div>
+    </aside>
+
+    <!-- Output Panel -->
+    <section class="output-panel">
+
+      <!-- Summary Cards -->
+      <div class="summary-cards" id="summaryCards">
+        <div class="summary-card">
+          <div class="card-label">TOTAL DEPLOYED</div>
+          <div class="card-value" id="sumTotal">—</div>
+        </div>
+        <div class="summary-card">
+          <div class="card-label">TOTAL SHARES</div>
+          <div class="card-value" id="sumShares">—</div>
+        </div>
+        <div class="summary-card">
+          <div class="card-label">AVG COST BASIS</div>
+          <div class="card-value" id="sumAvgCost">—</div>
+        </div>
+        <div class="summary-card">
+          <div class="card-label">BREAK-EVEN</div>
+          <div class="card-value" id="sumBreakEven">—</div>
+        </div>
+      </div>
+
+      <!-- Chart -->
+      <div class="chart-container">
+        <div class="chart-header">
+          <span class="chart-title">ALLOCATION CURVE</span>
+          <span class="chart-subtitle" id="chartSubtitle">—</span>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="allocationChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="table-container">
+        <div class="table-header">
+          <span class="table-title">TRANCHE BREAKDOWN</span>
+          <span class="table-meta" id="tableMeta">—</span>
+        </div>
+        <div class="table-scroll">
+          <table class="tranche-table" id="trancheTable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>PRICE</th>
+                <th>ALLOCATION</th>
+                <th>% OF TOTAL</th>
+                <th>SHARES</th>
+                <th>CUMUL. SHARES</th>
+                <th>CUMUL. $</th>
+              </tr>
+            </thead>
+            <tbody id="trancheBody">
+              <tr class="empty-row">
+                <td colspan="7">
+                  <div class="empty-state">
+                    <span class="empty-icon">⬡</span>
+                    <span>Set parameters and hit CALCULATE</span>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <span>TrancheCalc — Client-side only. No data leaves your browser.</span>
+    <span class="footer-divider">|</span>
+    <span>Created by <a href="https://x.com/chrisgreen" target="_blank" rel="noopener" class="footer-link">Chris Green</a></span>
+    <span class="footer-divider">|</span>
+    <span class="footer-license">MIT License</span>
+  </footer>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
